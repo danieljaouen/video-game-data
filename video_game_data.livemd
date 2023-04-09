@@ -1,0 +1,181 @@
+# Video Game Data
+
+```elixir
+Mix.install(
+  [
+    {:nx, "~> 0.5.0"},
+    {:axon, "~> 0.5.0"},
+    {:vega_lite, "~> 0.1.6"},
+    {:explorer, "~> 0.5.6"},
+    {:kino, "~> 0.9.1"},
+    {:kino_vega_lite, "~> 0.1.8"},
+    {:scholar, "~> 0.1.0"},
+    {:jason, "~> 1.4.0"},
+    {:exla, "~> 0.5.2"}
+  ],
+  config: [
+    nx: [default_backend: EXLA.Backend],
+    exla: [
+      clients: [
+        cuda: [platform: :cuda],
+        rocm: [platform: :rocm],
+        tpu: [platform: :tpu],
+        host: [platform: :host]
+      ]
+    ]
+  ]
+)
+```
+
+## Require Explorer.DataFrame
+
+```elixir
+require Explorer.DataFrame, as: DF
+require Explorer.Series, as: Series
+```
+
+## Read in the Data
+
+```elixir
+df = DF.from_csv!("~/Documents/Video_Games_Sales_as_at_22_Dec_2016.csv")
+DF.head(df)
+```
+
+## Drop the nils
+
+```elixir
+df = Explorer.DataFrame.drop_nil(df, [:User_Score, :Critic_Score, :Year_of_Release])
+```
+
+## Remove the "tbd"s
+
+```elixir
+df = DF.filter(df, col("User_Score") != "tbd")
+```
+
+## Transform User_Score to float
+
+```elixir
+df =
+  DF.mutate(
+    df,
+    User_Score: Series.cast(col("User_Score"), :float)
+  )
+```
+
+## Multiply User_Score by 10
+
+```elixir
+df =
+  DF.mutate(
+    df,
+    User_Score: col("User_Score") * 10
+  )
+```
+
+## Create Scatterplot of User_Score vs. Global_Sales
+
+<!-- livebook:{"attrs":{"chart_title":"User_Score vs. Global_Sales","height":null,"layers":[{"active":true,"chart_type":"point","color_field":null,"color_field_aggregate":null,"color_field_bin":null,"color_field_scale_scheme":null,"color_field_type":null,"data_variable":"df","geodata_color":"blue","latitude_field":null,"longitude_field":null,"x_field":"User_Score","x_field_aggregate":null,"x_field_bin":null,"x_field_scale_type":null,"x_field_type":"quantitative","y_field":"Global_Sales","y_field_aggregate":null,"y_field_bin":null,"y_field_scale_type":null,"y_field_type":"quantitative"}],"vl_alias":"Elixir.VegaLite","width":null},"chunks":null,"kind":"Elixir.KinoVegaLite.ChartCell","livebook_object":"smart_cell"} -->
+
+```elixir
+VegaLite.new(title: "User_Score vs. Global_Sales")
+|> VegaLite.data_from_values(df, only: ["User_Score", "Global_Sales"])
+|> VegaLite.mark(:point)
+|> VegaLite.encode_field(:x, "User_Score", type: :quantitative)
+|> VegaLite.encode_field(:y, "Global_Sales", type: :quantitative)
+```
+
+## Create Scatterplot of Critic_Score vs. Global_Sales
+
+<!-- livebook:{"attrs":{"chart_title":"Critic_Score vs. Global_Sales","height":null,"layers":[{"active":true,"chart_type":"point","color_field":null,"color_field_aggregate":null,"color_field_bin":null,"color_field_scale_scheme":null,"color_field_type":null,"data_variable":"df","geodata_color":"blue","latitude_field":null,"longitude_field":null,"x_field":"Critic_Score","x_field_aggregate":null,"x_field_bin":null,"x_field_scale_type":null,"x_field_type":"quantitative","y_field":"Global_Sales","y_field_aggregate":null,"y_field_bin":null,"y_field_scale_type":null,"y_field_type":"quantitative"}],"vl_alias":"Elixir.VegaLite","width":null},"chunks":null,"kind":"Elixir.KinoVegaLite.ChartCell","livebook_object":"smart_cell"} -->
+
+```elixir
+VegaLite.new(title: "Critic_Score vs. Global_Sales")
+|> VegaLite.data_from_values(df, only: ["Critic_Score", "Global_Sales"])
+|> VegaLite.mark(:point)
+|> VegaLite.encode_field(:x, "Critic_Score", type: :quantitative)
+|> VegaLite.encode_field(:y, "Global_Sales", type: :quantitative)
+```
+
+## Create Scatterplot of User_Score vs. Critic_Score
+
+<!-- livebook:{"attrs":{"chart_title":"User_Score vs. Critic_Score","height":null,"layers":[{"active":true,"chart_type":"point","color_field":null,"color_field_aggregate":null,"color_field_bin":null,"color_field_scale_scheme":null,"color_field_type":null,"data_variable":"df","geodata_color":"blue","latitude_field":null,"longitude_field":null,"x_field":"User_Score","x_field_aggregate":null,"x_field_bin":null,"x_field_scale_type":null,"x_field_type":"quantitative","y_field":"Critic_Score","y_field_aggregate":null,"y_field_bin":null,"y_field_scale_type":null,"y_field_type":"quantitative"}],"vl_alias":"Elixir.VegaLite","width":null},"chunks":null,"kind":"Elixir.KinoVegaLite.ChartCell","livebook_object":"smart_cell"} -->
+
+```elixir
+VegaLite.new(title: "User_Score vs. Critic_Score")
+|> VegaLite.data_from_values(df, only: ["User_Score", "Critic_Score"])
+|> VegaLite.mark(:point)
+|> VegaLite.encode_field(:x, "User_Score", type: :quantitative)
+|> VegaLite.encode_field(:y, "Critic_Score", type: :quantitative)
+```
+
+## Check Correlation between User_Score and Critic_Score
+
+```elixir
+# this function taken from here: https://ryancurtin.com/posts/titanic-machine-learning-in-elixir/
+to_tensor = fn df ->
+  df
+  |> Explorer.DataFrame.names()
+  |> Enum.map(&(Explorer.Series.to_tensor(df[&1]) |> Nx.new_axis(-1)))
+  |> Nx.concatenate(axis: 1)
+end
+
+Scholar.Covariance.correlation_matrix(
+  to_tensor.(
+    DF.select(
+      df,
+      ["User_Score", "Critic_Score"]
+    )
+  )
+)
+```
+
+## Train/Test Split
+
+```elixir
+# this section taken from: https://dockyard.com/blog/2022/04/07/catching-fraud-with-elixir-and-axon
+num_examples = DF.n_rows(df)
+num_train = ceil(0.85 * num_examples)
+num_test = num_examples - num_train
+
+train_df = DF.slice(df, 0, num_train)
+test_df = DF.slice(df, num_train, num_test)
+```
+
+## Separate Out x and y
+
+```elixir
+train_user_score = to_tensor.(DF.select(train_df, "User_Score"))
+train_critic_score = to_tensor.(DF.select(train_df, "Critic_Score"))
+train_y = train_df["Global_Sales"]
+
+test_user_score = to_tensor.(DF.select(test_df, "User_Score"))
+test_critic_score = to_tensor.(DF.select(test_df, "Critic_Score"))
+test_y = test_df["Global_Sales"]
+```
+
+## Do the Linear Regression
+
+```elixir
+model_user_score = Scholar.Linear.LinearRegression.fit(train_user_score, train_y)
+model_critic_score = Scholar.Linear.LinearRegression.fit(train_critic_score, train_y)
+```
+
+## Predict
+
+```elixir
+predictions_user_score =
+  Scholar.Linear.LinearRegression.predict(model_user_score, test_user_score)
+
+predictions_critic_score =
+  Scholar.Linear.LinearRegression.predict(model_critic_score, test_critic_score)
+```
+
+## Calculate mean_absolute_error
+
+```elixir
+mae_user_score = Scholar.Metrics.mean_absolute_error(test_y, predictions_user_score)
+IO.inspect(mae_user_score)
+mae_critic_score = Scholar.Metrics.mean_absolute_error(test_y, predictions_critic_score)
+IO.inspect(mae_critic_score)
+```
