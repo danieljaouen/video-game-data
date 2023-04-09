@@ -27,7 +27,7 @@ Mix.install(
 )
 ```
 
-## Require Explorer.DataFrame
+## Require Explorer.DataFrame and Explorer.Series
 
 ```elixir
 require Explorer.DataFrame, as: DF
