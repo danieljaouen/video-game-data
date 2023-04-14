@@ -12,7 +12,8 @@ Mix.install(
     {:scholar, "~> 0.1.0"},
     {:jason, "~> 1.4.0"},
     {:exla, "~> 0.5.2"},
-    {:req, "~> 0.3.6"}
+    {:req, "~> 0.3.6"},
+    {:kino_explorer, "~> 0.1.4"}
   ],
   config: [
     nx: [default_backend: EXLA.Backend],
